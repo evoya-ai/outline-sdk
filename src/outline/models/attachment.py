@@ -163,8 +163,20 @@ class Attachment(BaseModel):
             URL to access the attachment file
         """
         response = self._client.request("attachments.redirect", {"id": self.id})
-        # The response is typically a redirect, but we return the generated URL
-        # In practice, the API redirects but we can use the response if available
+        
+        # Handle 302 redirect response (plain text)
+        if response.get('status_code') == 302:
+            redirect_text = response.get('redirect_text', '')
+            if 'Redirecting to' in redirect_text:
+                # Extract URL from text like "Redirecting to URL"
+                parts = redirect_text.split('Redirecting to ')
+                if len(parts) > 1:
+                    return parts[1].strip().rstrip('.')
+        
+        # Handle standard JSON response
+        if 'data' in response:
+            return response['data']
+        
         return response.get("url", self.url or "")
 
     def delete(self) -> None:
@@ -216,6 +228,17 @@ class Attachment(BaseModel):
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
         
+        # Handle relative URLs by prepending the base URL
+        upload_url = self.upload_url
+        is_outline_endpoint = upload_url.startswith('/')
+        if is_outline_endpoint:
+            upload_url = self._client.api_url + upload_url
+        
+        # Prepare headers (authorization needed for Outline endpoints)
+        headers = {}
+        if is_outline_endpoint:
+            headers['Authorization'] = f'Bearer {self._client.api_key}'
+        
         # Prepare multipart upload
         with open(file_path, 'rb') as file:
             files = {
@@ -227,9 +250,10 @@ class Attachment(BaseModel):
             
             # Perform upload with generous timeout for large files
             response = requests.post(
-                self.upload_url,
+                upload_url,
                 files=files,
                 data=data,
+                headers=headers,
                 timeout=300  # 5 minutes
             )
             
@@ -278,6 +302,17 @@ class Attachment(BaseModel):
                 "or was not created with Attachment.create()."
             )
         
+        # Handle relative URLs by prepending the base URL
+        upload_url = self.upload_url
+        is_outline_endpoint = upload_url.startswith('/')
+        if is_outline_endpoint:
+            upload_url = self._client.api_url + upload_url
+        
+        # Prepare headers (authorization needed for Outline endpoints)
+        headers = {}
+        if is_outline_endpoint:
+            headers['Authorization'] = f'Bearer {self._client.api_key}'
+        
         filename = filename or self.name
         file_obj = BytesIO(file_bytes)
         
@@ -289,9 +324,10 @@ class Attachment(BaseModel):
         data = self.upload_form if self.upload_form else {}
         
         response = requests.post(
-            self.upload_url,
+            upload_url,
             files=files,
             data=data,
+            headers=headers,
             timeout=300
         )
         

@@ -23,13 +23,14 @@ def client():
     """
     api_url = os.getenv("TEST_OUTLINE_URL")
     api_key = os.getenv("TEST_OUTLINE_API_KEY")
+    rate_limit_delay = float(os.getenv("TEST_RATE_LIMIT_DELAY", "1.0"))
 
     if not api_url or not api_key:
         pytest.skip(
             "TEST_OUTLINE_URL and TEST_OUTLINE_API_KEY environment variables required for integration tests"
         )
 
-    return OutlineClient(api_url, api_key)
+    return OutlineClient(api_url, api_key, rate_limit_delay=rate_limit_delay)
 
 
 @pytest.fixture

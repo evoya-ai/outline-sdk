@@ -23,17 +23,19 @@ class TestCollectionWorkflows:
         )
         
         try:
-            # Add a document
+            # Add a document (needs to be published to show in collection.list_documents())
             doc = collection.add_document(
                 title="Document in Collection",
                 text="# Content\n\nThis is a test document.",
+                publish=True,
             )
             
             try:
-                # List documents
+                # List documents (returns navigation nodes, not Document objects)
                 docs = collection.list_documents()
                 assert len(docs) > 0
-                assert any(d.id == doc.id for d in docs)
+                # Navigation nodes have 'id' key, not attribute
+                assert any(d.get('id') == doc.id for d in docs)
                 
                 # Update collection
                 collection.update(description="Updated description")

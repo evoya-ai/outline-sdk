@@ -527,11 +527,22 @@ class TestCommentEdgeCases:
         """Test creating a comment with long text."""
         long_text = "This is a very long comment. " * 50
         
-        comment = Comment.create(
-            client,
-            document_id=test_document.id,
-            text=long_text,
-        )
+        # DEBUG: Log text length
+        print(f"\n[DEBUG] Long text length: {len(long_text)} characters")
+        print(f"[DEBUG] Long text bytes: {len(long_text.encode('utf-8'))} bytes")
+        
+        try:
+            comment = Comment.create(
+                client,
+                document_id=test_document.id,
+                text=long_text,
+            )
+        except Exception as e:
+            print(f"[DEBUG] Exception type: {type(e).__name__}")
+            print(f"[DEBUG] Exception message: {str(e)}")
+            if hasattr(e, 'data'):
+                print(f"[DEBUG] Exception data: {e.data}")
+            raise
         
         try:
             assert_comment_properties(comment)

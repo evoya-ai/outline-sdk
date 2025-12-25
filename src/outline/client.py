@@ -1,5 +1,6 @@
 """HTTP client for communicating with the Outline API."""
 
+import time
 from typing import Any, Dict, Optional
 
 import httpx
@@ -25,6 +26,7 @@ class OutlineClient:
         api_key: str,
         timeout: int = 30,
         verify_ssl: bool = True,
+        rate_limit_delay: float = 0.1,
     ):
         """
         Initialize the Outline API client.
@@ -34,12 +36,15 @@ class OutlineClient:
             api_key: API key for authentication
             timeout: Request timeout in seconds (default: 30)
             verify_ssl: Whether to verify SSL certificates (default: True)
+            rate_limit_delay: Delay in seconds between requests to avoid rate limits (default: 0.1)
         """
         self.api_url = api_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+        self.rate_limit_delay = rate_limit_delay
         self._session = httpx.Client(timeout=timeout, verify=verify_ssl)
+        self._last_request_time: float = 0
 
     def request(
         self,
@@ -69,6 +74,14 @@ class OutlineClient:
             NetworkError: When network-level error occurs
             OutlineError: For other API errors
         """
+        # Rate limiting: wait if needed
+        if self.rate_limit_delay > 0:
+            current_time = time.time()
+            time_since_last = current_time - self._last_request_time
+            if time_since_last < self.rate_limit_delay:
+                time.sleep(self.rate_limit_delay - time_since_last)
+            self._last_request_time = time.time()
+        
         url = f"{self.api_url}/api/{method}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -77,11 +90,24 @@ class OutlineClient:
         }
 
         try:
+            # DEBUG logging
+            import json as _json
+            print(f"[DEBUG] Request URL: {url}")
+            print(f"[DEBUG] Request data keys: {list((data or {}).keys())}")
+            if 'text' in (data or {}):
+                text_val = data.get('text', '')
+                print(f"[DEBUG] Request text length: {len(text_val)}")
+            print(f"[DEBUG] Request payload size: {len(_json.dumps(data or {}))} bytes")
+            
             response = self._session.post(
                 url,
                 json=data or {},
                 headers=headers,
             )
+            
+            print(f"[DEBUG] Response status: {response.status_code}")
+            if response.status_code >= 400:
+                print(f"[DEBUG] Response body: {response.text[:500]}")
         except httpx.RequestError as e:
             raise NetworkError("Failed to connect to Outline API", original_error=e)
         except Exception as e:
@@ -95,6 +121,11 @@ class OutlineClient:
                 raise OutlineError(
                     f"Failed to parse response: {response.text}", status_code=response.status_code
                 )
+        
+        # Handle 302 redirects (special case for attachments.redirect)
+        if response.status_code == 302:
+            # For redirects, return the text which contains the redirect URL
+            return {"redirect_text": response.text, "status_code": 302}
 
         # Handle error responses
         self._handle_error(response)
