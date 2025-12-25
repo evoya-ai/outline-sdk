@@ -524,31 +524,18 @@ class TestCommentEdgeCases:
                 pass
 
     def test_comment_with_long_text(self, client, test_document):
-        """Test creating a comment with long text."""
-        long_text = "This is a very long comment. " * 50
+        """Test that creating a comment with text exceeding 1000 characters fails."""
+        # Outline API has a 1000 character limit for comments
+        long_text = "This is a very long comment. " * 50  # 1450 characters
         
-        # DEBUG: Log text length
-        print(f"\n[DEBUG] Long text length: {len(long_text)} characters")
-        print(f"[DEBUG] Long text bytes: {len(long_text.encode('utf-8'))} bytes")
-        
-        try:
-            comment = Comment.create(
+        # Should raise ValidationError for text exceeding 1000 characters
+        from outline.exceptions import ValidationError
+        with pytest.raises(ValidationError) as exc_info:
+            Comment.create(
                 client,
                 document_id=test_document.id,
                 text=long_text,
             )
-        except Exception as e:
-            print(f"[DEBUG] Exception type: {type(e).__name__}")
-            print(f"[DEBUG] Exception message: {str(e)}")
-            if hasattr(e, 'data'):
-                print(f"[DEBUG] Exception data: {e.data}")
-            raise
         
-        try:
-            assert_comment_properties(comment)
-            assert comment.document_id == test_document.id
-        finally:
-            try:
-                comment.delete()
-            except Exception:
-                pass
+        # Verify it's a validation error about the character limit
+        assert "validation_error" in str(exc_info.value).lower()

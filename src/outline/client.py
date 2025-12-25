@@ -90,24 +90,11 @@ class OutlineClient:
         }
 
         try:
-            # DEBUG logging
-            import json as _json
-            print(f"[DEBUG] Request URL: {url}")
-            print(f"[DEBUG] Request data keys: {list((data or {}).keys())}")
-            if 'text' in (data or {}):
-                text_val = data.get('text', '')
-                print(f"[DEBUG] Request text length: {len(text_val)}")
-            print(f"[DEBUG] Request payload size: {len(_json.dumps(data or {}))} bytes")
-            
             response = self._session.post(
                 url,
                 json=data or {},
                 headers=headers,
             )
-            
-            print(f"[DEBUG] Response status: {response.status_code}")
-            if response.status_code >= 400:
-                print(f"[DEBUG] Response body: {response.text[:500]}")
         except httpx.RequestError as e:
             raise NetworkError("Failed to connect to Outline API", original_error=e)
         except Exception as e:
