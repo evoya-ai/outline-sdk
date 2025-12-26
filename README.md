@@ -19,10 +19,10 @@ A beautiful, elegant Python SDK for the [Outline](https://www.getoutline.com/) A
 
 ```bash
 # Using pip
-pip install outline-sdk
+pip install outline-kb-sdk
 
 # Using uv (recommended)
-uv pip install outline-sdk
+uv pip install outline-kb-sdk
 ```
 
 ## Quick Start
